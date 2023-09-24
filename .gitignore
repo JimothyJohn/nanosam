@@ -7,3 +7,8 @@ data
 **.egg-info
 *.onnx
 .hypothesis
+
+# My stuff
+.vscode/
+.env*
+.cog/

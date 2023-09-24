@@ -1,0 +1,30 @@
+{
+    "name": "Nanosam Dev Container",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "dbaeumer.vscode-eslint"
+            ]
+        }
+    },
+    "forwardPorts": [
+        5000,
+        8888
+    ],
+    "workspaceFolder": "/workspaces/nanosam",
+    "mounts": [
+        "source=${localWorkspaceFolder},target=/nanosam,type=bind,consistency=cached"
+    ],
+    "runArgs": [
+        "--ipc",
+        "host",
+        "--gpus",
+        "all",
+        "--shm-size",
+        "4G",
+        "--rm"
+    ]
+}

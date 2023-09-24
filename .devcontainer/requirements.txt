@@ -1,0 +1,4 @@
+transformers==4.33.2
+git+https://github.com/NVIDIA-AI-IOT/torch2trt.git
+timm==0.9.7
+gdown==4.7.1
