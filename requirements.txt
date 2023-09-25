@@ -1,5 +1,5 @@
 transformers==4.33.2
-tensorrt==8.5.2.2
+tensorrt==8.6.1
 timm==0.9.7
 onnx==1.14.1
 matplotlib

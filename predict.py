@@ -29,7 +29,7 @@ warnings.filterwarnings("ignore")
 
 import numpy as np
 import matplotlib.pyplot as plt
-import PIL.Image
+from PIL import Image
 from nanosam.utils.predictor import Predictor as nanoPredictor
 import os
 
@@ -39,7 +39,6 @@ import numpy as np
 import os
 import sys
 import logging
-from time import sleep
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("EngineBuilder").setLevel(logging.INFO)
@@ -47,7 +46,8 @@ log = logging.getLogger("EngineBuilder")
 
 # Initialize TensorRT logger
 VERBOSE = False
-workspace = 8
+# Memory to use (Use 14GB of T4's 16GB)
+WORKSPACE = 8
 TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
 TRT_LOGGER.min_severity = trt.Logger.Severity.WARNING
 trt.init_libnvinfer_plugins(TRT_LOGGER, namespace="")
@@ -56,12 +56,12 @@ trt.init_libnvinfer_plugins(TRT_LOGGER, namespace="")
 def build_engine(onnx_path: str) -> None:
     builder = trt.Builder(TRT_LOGGER)
     config = builder.create_builder_config()
-    config.max_workspace_size = workspace * (2**30)
+    config.max_workspace_size = WORKSPACE * (2**30)
     network_flags = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
     network = builder.create_network(network_flags)
     parser = trt.OnnxParser(network, TRT_LOGGER)
 
-    with open(f"/src/data/{onnx_path}", "rb") as f:
+    with open(f"{onnx_path}", "rb") as f:
         if not parser.parse(f.read()):
             log.error(f"Failed to load ONNX file: {onnx_path}")
             for error in range(parser.num_errors):
@@ -75,7 +75,7 @@ def build_engine(onnx_path: str) -> None:
 
     # Get shapes here
     # https://github.com/NVIDIA-AI-IOT/nanosam/blob/653633614b2eb93b06ba3be9adb2aeffb117bd72/README.md?plain=1#L158
-    if onnx_path.startswith("mobile"):
+    if onnx_path.startswith("/src/data/mobile"):
         # https://docs.nvidia.com/deeplearning/tensorrt/api/python_api/infer/Core/OptimizationProfile.html#tensorrt.IOptimizationProfile.set_shape
         profile.set_shape("point_coords", min=(1, 1, 2), opt=(1, 1, 2), max=(1, 10, 2))
         profile.set_shape("point_labels", min=(1, 1), opt=(1, 1), max=(1, 10))
@@ -83,7 +83,7 @@ def build_engine(onnx_path: str) -> None:
 
     dynamic_inputs = False
 
-    engine_path = os.path.realpath(f"{onnx_path.split('.onnx')[0]}.engine")
+    engine_path = f"{onnx_path.split('.onnx')[0]}.engine"
     engine_dir = os.path.dirname(engine_path)
     os.makedirs(engine_dir, exist_ok=True)
     precision = "fp16"
@@ -103,12 +103,12 @@ def build_engine(onnx_path: str) -> None:
 
 class Predictor(BasePredictor):
     def setup(self) -> None:
-        # Load checkpoint from pre-downloaded location
+        # Build accelerated engines if not done already.
         if not os.path.exists("/src/data/mobile_sam_mask_decoder.engine"):
-            build_engine("mobile_sam_mask_decoder.onnx")
+            build_engine("/src/data/mobile_sam_mask_decoder.onnx")
 
         if not os.path.exists("/src/data/resnet18_image_encoder.engine"):
-            build_engine("resnet18_image_encoder.onnx")
+            build_engine("/src/data/resnet18_image_encoder.onnx")
 
         self.predictor = nanoPredictor(
             "/src/data/resnet18_image_encoder.engine",
@@ -117,20 +117,42 @@ class Predictor(BasePredictor):
 
     def predict(
         self,
-        text: str = Input(description="What to dream"),
+        image: Path = Input(description="Input image"),
+        x0: float = Input(
+            description="Bounding box x0",
+            default=0.1,
+        ),
+        y0: float = Input(
+            description="Bounding box y0",
+            default=0.1,
+        ),
+        x1: float = Input(
+            description="Bounding box x1",
+            default=0.9,
+        ),
+        y1: float = Input(
+            description="Bounding box y1",
+            default=0.9,
+        ),
     ) -> Path:
         # Read image and run image encoder
-        image = PIL.Image.open("assets/dogs.jpg")
+        image = Image.open(image)
+        width, height = image.size
 
         self.predictor.set_image(image)
 
         # Segment using bounding box
-        bbox = [600, 600, 1050, 1059]  # x0, y0, x1, y1
+        bbox = [
+            int(width * x0),
+            int(height * y0),
+            int(width * x1),
+            int(height * y1),
+        ]  # x0, y0, x1, y1
 
         points = np.array([[bbox[0], bbox[1]], [bbox[2], bbox[3]]])
 
         # point_labels = np.array([2, 3])
-        point_labels = np.array([0, 1])
+        point_labels = np.array([2, 3])
 
         mask, _, _ = self.predictor.predict(points, point_labels)
 

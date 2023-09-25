@@ -35,7 +35,8 @@ main() {
 
     curl http://localhost:5000/predictions -X POST \
         -H 'Content-Type: application/json' \
-        -d '{"input": {"text": "Unnecessary"}}'
+        -d '{"input": {"image": "https://github.com/NVIDIA-AI-IOT/nanosam/blob/main/assets/dogs.jpg?raw=true"}}' \
+        | jq .status 
 
 }
 

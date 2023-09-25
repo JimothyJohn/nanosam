@@ -14,7 +14,7 @@ build:
     - "libglfw3-dev"
 
   # python version in the form '3.11' or '3.11.4'
-  python_version: "3.9"
+  python_version: "3.11"
 
   # A list of packages in the format <package-name>==<version>
   python_requirements: requirements.txt

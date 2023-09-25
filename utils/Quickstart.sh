@@ -35,7 +35,12 @@ main() {
 
     install_docker
 
-    docker run --gpus all -p 5000:5000 $IMAGE
+    
+    mkdir -p .logs/
+    cog build | tee ./.logs/build.txt
+    docker run --gpus all -p 5000:5000 $IMAGE | tee > ./.logs/runtime.txt
 }
 
 main "$@"
+
+resnet18_image_encoder.engine
